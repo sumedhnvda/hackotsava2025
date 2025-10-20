@@ -5,7 +5,7 @@ import pandas as pd
 st.set_page_config(layout="wide")
 
 st.title("🎓 Team Leader Registrations Dashboard")
-st.write("Select one or more organisations from the dropdown menu below to view the registered team leaders.")
+st.write("Use the filters below to search by organisation, team name, or both.")
 
 # Use st.cache_data for better performance by loading and cleaning the data only once
 @st.cache_data
@@ -41,21 +41,37 @@ input_file = 'team_leaders.xlsx'
 df = load_data(input_file)
 
 if df is not None:
-    # Check if the required column for filtering exists in the file
-    required_column = "Candidate's Organisation"
-    if required_column in df.columns:
+    # Check if the required columns for filtering exist in the file
+    org_column = "Candidate's Organisation"
+    team_column = "Team Name"
+    if org_column in df.columns and team_column in df.columns:
         
-        # Get a unique, sorted list of organisations for the dropdown
-        organisations = sorted(df[required_column].dropna().unique())
+        # --- Filter Widgets ---
+        organisations = sorted(df[org_column].dropna().unique())
         
-        # Create the interactive multi-select menu
         selected_orgs = st.multiselect(
             label="Filter by Organisation(s):",
             options=organisations,
             placeholder="Select one or more organisations"
         )
+
+        team_search_query = st.text_input(
+            label="Search by Team Name:",
+            placeholder="Enter a team name to search"
+        ).strip()
         
-        # Define the specific columns to display in the table
+        # --- Filtering Logic ---
+        # Start with the full dataframe and apply filters sequentially
+        filtered_df = df
+
+        if selected_orgs:
+            filtered_df = filtered_df[filtered_df[org_column].isin(selected_orgs)]
+        
+        if team_search_query:
+            # Use .str.contains() for a case-insensitive search
+            filtered_df = filtered_df[filtered_df[team_column].str.contains(team_search_query, case=False, na=False)]
+        
+        # --- Display Logic ---
         columns_to_display = [
             "Team Name",
             "Candidate's Name",
@@ -65,46 +81,39 @@ if df is not None:
             "Candidate's Mobile"
         ]
         
-        # Check if all the requested columns actually exist in the file
         if all(col in df.columns for col in columns_to_display):
-            # Display the data table based on the user's selection
-            if selected_orgs: # True if the list of selected orgs is not empty
-                st.subheader(f"Displaying Team Leaders from selected organisations")
-                # Filter the dataframe to show only rows for the organisations in the selected list
-                filtered_df = df[df[required_column].isin(selected_orgs)]
-                
-                # Add a metric to show the total count of filtered rows
-                st.metric("Total Rows Found", len(filtered_df))
-                
-                # Prepare a copy for display with a clean index starting from 1
-                display_df = filtered_df[columns_to_display].copy()
-                display_df.reset_index(drop=True, inplace=True)
-                display_df.index = display_df.index + 1
-                display_df.index.name = "Sl. No."
-                
-                # Display only the selected columns
-                st.dataframe(display_df)
-            else:
+            # Display the data table based on whether any filters have been applied
+            if not selected_orgs and not team_search_query:
                 # Show an initial message and the full table before a selection is made
-                st.info("Showing all entries. Select an organisation from the list above to filter the results.")
+                st.info("Showing all entries. Use the filters above to narrow the results.")
                 st.subheader("All Team Leader Registrations")
-                
-                # Add a metric for the total count of all rows
                 st.metric("Total Rows", len(df))
 
-                # Prepare a copy of the full dataframe for display with a clean index
                 display_df = df[columns_to_display].copy()
                 display_df.reset_index(drop=True, inplace=True)
                 display_df.index = display_df.index + 1
                 display_df.index.name = "Sl. No."
 
-                # Display only the selected columns from the full dataframe
+                st.dataframe(display_df)
+            else:
+                st.subheader("Filtered Results")
+                st.metric("Total Rows Found", len(filtered_df))
+                
+                display_df = filtered_df[columns_to_display].copy()
+                display_df.reset_index(drop=True, inplace=True)
+                display_df.index = display_df.index + 1
+                display_df.index.name = "Sl. No."
+                
                 st.dataframe(display_df)
         else:
-            # Find which columns are missing and show a helpful error
             missing_cols = [col for col in columns_to_display if col not in df.columns]
             st.error(f"Error: The following required columns are missing from the Excel file: {', '.join(missing_cols)}")
 
     else:
-        st.error(f"Error: The required column '{required_column}' was not found in the Excel file.")
+        missing = []
+        if org_column not in df.columns:
+            missing.append(f"'{org_column}'")
+        if team_column not in df.columns:
+            missing.append(f"'{team_column}'")
+        st.error(f"Error: The required column(s) {', '.join(missing)} were not found in the Excel file.")
 
