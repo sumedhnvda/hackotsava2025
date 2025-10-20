@@ -46,7 +46,6 @@ if df is not None:
     if required_column in df.columns:
         
         # Get a unique, sorted list of organisations for the dropdown
-        # .dropna() removes any empty cells before creating the list
         organisations = sorted(df[required_column].dropna().unique())
         
         # Create the interactive multi-select menu
@@ -73,14 +72,34 @@ if df is not None:
                 st.subheader(f"Displaying Team Leaders from selected organisations")
                 # Filter the dataframe to show only rows for the organisations in the selected list
                 filtered_df = df[df[required_column].isin(selected_orgs)]
+                
+                # Add a metric to show the total count of filtered rows
+                st.metric("Total Rows Found", len(filtered_df))
+                
+                # Prepare a copy for display with a clean index starting from 1
+                display_df = filtered_df[columns_to_display].copy()
+                display_df.reset_index(drop=True, inplace=True)
+                display_df.index = display_df.index + 1
+                display_df.index.name = "Sl. No."
+                
                 # Display only the selected columns
-                st.dataframe(filtered_df[columns_to_display])
+                st.dataframe(display_df)
             else:
                 # Show an initial message and the full table before a selection is made
                 st.info("Showing all entries. Select an organisation from the list above to filter the results.")
                 st.subheader("All Team Leader Registrations")
+                
+                # Add a metric for the total count of all rows
+                st.metric("Total Rows", len(df))
+
+                # Prepare a copy of the full dataframe for display with a clean index
+                display_df = df[columns_to_display].copy()
+                display_df.reset_index(drop=True, inplace=True)
+                display_df.index = display_df.index + 1
+                display_df.index.name = "Sl. No."
+
                 # Display only the selected columns from the full dataframe
-                st.dataframe(df[columns_to_display])
+                st.dataframe(display_df)
         else:
             # Find which columns are missing and show a helpful error
             missing_cols = [col for col in columns_to_display if col not in df.columns]
