@@ -5,7 +5,7 @@ import pandas as pd
 st.set_page_config(layout="wide")
 
 st.title("🎓 Team Leader Registrations Dashboard")
-st.write("Select an organisation from the dropdown menu below to view the registered team leaders.")
+st.write("Select one or more organisations from the dropdown menu below to view the registered team leaders.")
 
 # Use st.cache_data for better performance by loading and cleaning the data only once
 @st.cache_data
@@ -49,13 +49,11 @@ if df is not None:
         # .dropna() removes any empty cells before creating the list
         organisations = sorted(df[required_column].dropna().unique())
         
-        # Add a placeholder option at the beginning of the list
-        options = ["Select an organisation..."] + organisations
-
-        # Create the interactive dropdown menu
-        selected_org = st.selectbox(
-            label="Filter by Organisation:",
-            options=options
+        # Create the interactive multi-select menu
+        selected_orgs = st.multiselect(
+            label="Filter by Organisation(s):",
+            options=organisations,
+            placeholder="Select one or more organisations"
         )
         
         # Define the specific columns to display in the table
@@ -71,10 +69,10 @@ if df is not None:
         # Check if all the requested columns actually exist in the file
         if all(col in df.columns for col in columns_to_display):
             # Display the data table based on the user's selection
-            if selected_org != "Select an organisation...":
-                st.subheader(f"Displaying Team Leaders from: {selected_org}")
-                # Filter the dataframe to show only rows for the selected organisation
-                filtered_df = df[df[required_column] == selected_org]
+            if selected_orgs: # True if the list of selected orgs is not empty
+                st.subheader(f"Displaying Team Leaders from selected organisations")
+                # Filter the dataframe to show only rows for the organisations in the selected list
+                filtered_df = df[df[required_column].isin(selected_orgs)]
                 # Display only the selected columns
                 st.dataframe(filtered_df[columns_to_display])
             else:
