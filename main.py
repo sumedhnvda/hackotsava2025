@@ -7,12 +7,27 @@ st.set_page_config(layout="wide")
 st.title("🎓 Team Leader Registrations Dashboard")
 st.write("Select an organisation from the dropdown menu below to view the registered team leaders.")
 
-# Use st.cache_data for better performance by loading the data only once
+# Use st.cache_data for better performance by loading and cleaning the data only once
 @st.cache_data
 def load_data(file_path):
-    """Loads data from the specified Excel file."""
+    """Loads and cleans data from the specified Excel file."""
     try:
         df = pd.read_excel(file_path)
+        
+        # --- Data Cleaning Step for Mobile Numbers ---
+        mobile_col = "Candidate's Mobile"
+        if mobile_col in df.columns:
+            # Ensure the column is treated as a string, handling potential missing values and whitespace
+            df[mobile_col] = df[mobile_col].astype(str).str.strip()
+            
+            # Create a boolean mask for numbers that start with '91' and are long enough
+            # to be a standard mobile number with a country code.
+            mask = df[mobile_col].str.startswith('91') & (df[mobile_col].str.len() > 10)
+            
+            # Use the mask to apply the slicing operation, removing '91' only where appropriate
+            df.loc[mask, mobile_col] = df.loc[mask, mobile_col].str[2:]
+        # --- End of Cleaning Step ---
+            
         return df
     except FileNotFoundError:
         st.error(f"Error: The file '{file_path}' was not found. Please make sure it is in the same directory as the script.")
