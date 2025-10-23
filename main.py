@@ -5,7 +5,7 @@ import pandas as pd
 st.set_page_config(layout="wide")
 
 st.title("🎓 Team Leader Registrations Dashboard")
-st.write("Use the filters below to search by organisation, team name, or both.")
+st.write("Use the filters below to search by organisation, team name, or mobile number.")
 
 # Use st.cache_data for better performance by loading and cleaning the data only once
 @st.cache_data
@@ -17,8 +17,8 @@ def load_data(file_path):
         # --- Data Cleaning Step for Mobile Numbers ---
         mobile_col = "Candidate's Mobile"
         if mobile_col in df.columns:
-            # Ensure the column is treated as a string, handling potential missing values and whitespace
-            df[mobile_col] = df[mobile_col].astype(str).str.strip()
+            # Ensure the column is treated as a string, handling potential missing values (NaN) and whitespace
+            df[mobile_col] = df[mobile_col].astype(str).str.strip().fillna('')
             
             # Create a boolean mask for numbers that start with '91' and are long enough
             # to be a standard mobile number with a country code.
@@ -44,20 +44,34 @@ if df is not None:
     # Check if the required columns for filtering exist in the file
     org_column = "Candidate's Organisation"
     team_column = "Team Name"
-    if org_column in df.columns and team_column in df.columns:
+    mobile_column = "Candidate's Mobile" # Added mobile column
+    
+    # Check if all required filter columns exist
+    if org_column in df.columns and team_column in df.columns and mobile_column in df.columns:
         
         # --- Filter Widgets ---
         organisations = sorted(df[org_column].dropna().unique())
         
-        selected_orgs = st.multiselect(
-            label="Filter by Organisation(s):",
-            options=organisations,
-            placeholder="Select one or more organisations"
-        )
+        # Use columns for a cleaner layout
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            selected_orgs = st.multiselect(
+                label="Filter by Organisation(s):",
+                options=organisations,
+                placeholder="Select one or more organisations"
+            )
+        
+        with col2:
+            team_search_query = st.text_input(
+                label="Search by Team Name:",
+                placeholder="Enter a team name to search"
+            ).strip()
 
-        team_search_query = st.text_input(
-            label="Search by Team Name:",
-            placeholder="Enter a team name to search"
+        # Add the new mobile search box
+        mobile_search_query = st.text_input(
+            label="Search by Mobile Number:",
+            placeholder="Enter a mobile number (e.g., 987...)"
         ).strip()
         
         # --- Filtering Logic ---
@@ -71,6 +85,10 @@ if df is not None:
             # Use .str.contains() for a case-insensitive search
             filtered_df = filtered_df[filtered_df[team_column].str.contains(team_search_query, case=False, na=False)]
         
+        if mobile_search_query:
+            # Search the mobile column (which is already cleaned of '91' prefixes)
+            filtered_df = filtered_df[filtered_df[mobile_column].str.contains(mobile_search_query, na=False)]
+            
         # --- Display Logic ---
         columns_to_display = [
             "Team Name",
@@ -83,7 +101,7 @@ if df is not None:
         
         if all(col in df.columns for col in columns_to_display):
             # Display the data table based on whether any filters have been applied
-            if not selected_orgs and not team_search_query:
+            if not selected_orgs and not team_search_query and not mobile_search_query: # Updated condition
                 # Show an initial message and the full table before a selection is made
                 st.info("Showing all entries. Use the filters above to narrow the results.")
                 st.subheader("All Team Leader Registrations")
@@ -110,10 +128,14 @@ if df is not None:
             st.error(f"Error: The following required columns are missing from the Excel file: {', '.join(missing_cols)}")
 
     else:
+        # Update error message to include mobile column
         missing = []
         if org_column not in df.columns:
             missing.append(f"'{org_column}'")
         if team_column not in df.columns:
             missing.append(f"'{team_column}'")
-        st.error(f"Error: The required column(s) {', '.join(missing)} were not found in the Excel file.")
+        if mobile_column not in df.columns:
+            missing.append(f"'{mobile_column}'")
+        st.error(f"Error: The required filter column(s) {', '.join(missing)} were not found in the Excel file.")
+
 
